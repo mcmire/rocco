@@ -52,7 +52,7 @@ Gem::Specification.new do |s|
   s.executables = ["rocco"]
 
   s.test_files = s.files.select {|path| path =~ /^test\/.*_test.rb/}
-  s.add_dependency 'redcarpet', '~> 1.17'
+  s.add_dependency 'redcarpet', '~> 2'
   s.add_dependency 'mustache'
   s.add_dependency 'pygments.rb'
 
