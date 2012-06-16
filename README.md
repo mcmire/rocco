@@ -1,3 +1,9 @@
+# Rocco [![Build Status](https://secure.travis-ci.org/jch/rocco.png)](http://travis-ci.org/jch/rocco)
+
+This is a temporary fork of
+[rtomayko's awesome rocco](http://rtomayko.github.com/rocco/) library to
+keep track of changes I want. Hopefully, some of these will be merged
+upstream as rtomayko's schedule frees up.
 
 
                   ___       ___       ___       ___       ___
