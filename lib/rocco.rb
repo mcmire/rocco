@@ -31,16 +31,8 @@
 
 #### Prerequisites
 
-# We'll need a Markdown library. Try to load one if not already established.
-unless defined?(Markdown)
-  markdown_libraries = %w[redcarpet rdiscount bluecloth]
-  begin
-    require markdown_libraries.shift
-  rescue LoadError => boom
-    retry if markdown_libraries.any?
-    raise
-  end
-end
+# We use [redcarpet](https://github.com/tanoku/redcarpet) for markdown
+require 'redcarpet'
 
 # We use [{{ mustache }}](http://defunkt.github.com/mustache/) for
 # HTML templating.
@@ -434,7 +426,8 @@ class Rocco
 
   # Convert Markdown to classy HTML.
   def process_markdown(text)
-    Markdown.new(text, :smart).to_html
+    @renderer ||= Redcarpet::Markdown.new(Redcarpet::Render::HTML)
+    @renderer.render(text)
   end
 
   # We `popen` a read/write pygmentize process in the parent and
