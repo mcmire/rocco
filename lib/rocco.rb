@@ -38,14 +38,8 @@ require 'redcarpet'
 # HTML templating.
 require 'mustache'
 
-# We use `Net::HTTP` to highlight code via <http://pygments.appspot.com>
-require 'net/http'
-
-# Code is run through [Pygments](http://pygments.org/) for syntax
-# highlighting. If it's not installed, locally, use a webservice.
-unless ENV['PATH'].split(':').any? { |dir| File.executable?("#{dir}/pygmentize") }
-  warn "WARNING: Pygments not found. Using webservice."
-end
+# We use a ruby wrapper around [Pygments](http://pygments.org/) to highlight code
+require 'pygments'
 
 #### Public Interface
 
@@ -140,25 +134,14 @@ class Rocco
   # Helper Functions
   # ----------------
 
-  # Returns `true` if `pygmentize` is available locally, `false` otherwise.
-  def pygmentize?
-    @_pygmentize ||= ENV['PATH'].split(':').
-      any? { |dir| File.executable?("#{dir}/pygmentize") }
-  end
-
-  # If `pygmentize` is available, we can use it to autodetect a file's
-  # language based on its filename.  Filenames without extensions, or with
-  # extensions that `pygmentize` doesn't understand will return `text`.
-  # We'll also return `text` if `pygmentize` isn't available.
+  # Filenames without extensions, or with unknown extensions
+  # will return `text`.
   #
   # We'll memoize the result, as we'll call this a few times.
   def detect_language
-    @_language ||=
-      if pygmentize?
-        %x[pygmentize -N #{@file}].strip.split('+').first
-      else
-        "text"
-      end
+    @_language ||= Pygments.lexer_name_for(:filename => @file)
+  rescue RubyPython::PythonError => e
+    @_language = 'text' if e.message =~ /no lexer for filename/
   end
 
   # Given a file's language, we should be able to autopopulate the
@@ -374,7 +357,7 @@ class Rocco
     docs_html = process_markdown(markdown).split(/\n*<h5>DIVIDER<\/h5>\n*/m)
 
     # Combine all code blocks into a single big stream with section dividers and
-    # run through either `pygmentize(1)` or <http://pygments.appspot.com>
+    # run through pygments.rb
     span, espan = '<span class="c.?">', '</span>'
     if @options[:comment_chars][:single]
       front = @options[:comment_chars][:single]
@@ -406,19 +389,14 @@ class Rocco
 
     code_stream = code_blocks.join(divider_input)
 
-    code_html =
-      if pygmentize?
-        highlight_pygmentize(code_stream)
-      else
-        highlight_webservice(code_stream)
-      end
+    code_html = highlight_pygmentize(code_stream)
 
     # Do some post-processing on the pygments output to split things back
     # into sections and remove partial `<pre>` blocks.
     code_html = code_html.
       split(divider_output).
       map { |code| code.sub(/\n?<div class="highlight"><pre>/m, '') }.
-      map { |code| code.sub(/\n?<\/pre><\/div>\n/m, '') }
+      map { |code| code.sub(/\n?<\/pre>\n?<\/div>\n/m, '') }
 
     # Lastly, combine the docs and code lists back into a list of two-tuples.
     docs_html.zip(code_html)
@@ -433,30 +411,12 @@ class Rocco
   # We `popen` a read/write pygmentize process in the parent and
   # then fork off a child process to write the input.
   def highlight_pygmentize(code)
-    code_html = nil
-    open("|pygmentize -l #{@options[:language]} -O encoding=utf-8 -f html", 'r+') do |fd|
-      pid =
-        fork {
-          fd.close_read
-          fd.write code
-          fd.close_write
-          exit!
-        }
-      fd.close_write
-      code_html = fd.read
-      fd.close_read
-      Process.wait(pid)
-    end
-
-    code_html
-  end
-
-  # Pygments is not one of those things that's trivial for a ruby user to install,
-  # so we'll fall back on a webservice to highlight the code if it isn't available.
-  def highlight_webservice(code)
-    url = URI.parse 'http://pygments.appspot.com/'
-    options = { 'lang' => @options[:language], 'code' => code}
-    Net::HTTP.post_form(url, options).body
+    Pygments.highlight(code, {
+      :lexer   => @options[:language],
+      :options => {
+        :outencoding => 'utf-8'
+      }
+    })
   end
 end
 
