@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
   s.files = %w[
     CHANGES.md
     COPYING
-    README
+    README.md
     Rakefile
     bin/rocco
     lib/rocco.rb
@@ -55,6 +55,8 @@ Gem::Specification.new do |s|
   s.add_dependency 'redcarpet', '~> 2'
   s.add_dependency 'mustache'
   s.add_dependency 'pygments.rb'
+
+  s.add_development_dependency 'rake'
 
   s.has_rdoc = false
   s.homepage = "http://rtomayko.github.com/rocco/"
