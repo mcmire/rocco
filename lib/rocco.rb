@@ -356,6 +356,14 @@ class Rocco
     markdown = docs_blocks.join("\n\n##### DIVIDER\n\n")
     docs_html = process_markdown(markdown).split(/\n*<h5>DIVIDER<\/h5>\n*/m)
 
+    # Find fenced code blocks and run through pygments.rb
+    docs_html.each do |doc|
+      doc.match(/<code class="([^\"]+)">([^<]+)<\/code>/) do |matches|
+        language, code = matches[1], CGI.unescapeHTML(matches[2])
+        doc.gsub!(matches[0], %{<code class="#{language}">#{highlight_pygmentize(code)}</code>})
+      end
+    end
+
     # Combine all code blocks into a single big stream with section dividers and
     # run through pygments.rb
     span, espan = '<span class="c.?">', '</span>'
@@ -404,7 +412,7 @@ class Rocco
 
   # Convert Markdown to classy HTML.
   def process_markdown(text)
-    @renderer ||= Redcarpet::Markdown.new(Redcarpet::Render::HTML)
+    @renderer ||= Redcarpet::Markdown.new(Redcarpet::Render::HTML, fenced_code_blocks: true)
     @renderer.render(text)
   end
 
