@@ -200,7 +200,8 @@ class Rocco
   # form `[docs, code]` where both elements are arrays containing the
   # raw lines parsed from the input file, comment characters stripped.
   def parse(data)
-    sections, docs, code = [], [], []
+    base_indentation = nil
+    sections, docs, code, parent_index = [], [], [], nil
     lines = data.split("\n")
 
     # The first line is ignored if it is a shebang line.  We also ignore the
@@ -219,7 +220,7 @@ class Rocco
     single_line_comment, block_comment_start, block_comment_mid, block_comment_end =
       nil, nil, nil, nil
     if not @options[:comment_chars][:single].nil?
-      single_line_comment = Regexp.new("^\\s*#{Regexp.escape(@options[:comment_chars][:single])}\\s?")
+      single_line_comment = Regexp.new("^(\\s*)#{Regexp.escape(@options[:comment_chars][:single])}\\s?")
     end
     if not @options[:comment_chars][:multi].nil?
       block_comment_start = Regexp.new("^\\s*#{Regexp.escape(@options[:comment_chars][:multi][:start])}\\s*$")
@@ -283,9 +284,18 @@ class Rocco
           end
           docs << line.match(block_comment_start_with).captures.first
         elsif single_line_comment && line.match(single_line_comment)
+          indentation = $1.length
+          if base_indentation.nil? && indentation > 0
+            base_indentation = indentation
+          end
           if code.any?
-            sections << [docs, code]
+            sections << [docs, code, parent_index]
             docs, code = [], []
+          end
+          if base_indentation.nil? || indentation == base_indentation
+            parent_index = nil
+          elsif parent_index.nil? && sections.any?
+            parent_index = sections.length-1
           end
           docs << line.sub(single_line_comment || '', '')
         else
@@ -293,7 +303,7 @@ class Rocco
         end
       end
     end
-    sections << [docs, code] if docs.any? || code.any?
+    sections << [docs, code, parent_index] if docs.any? || code.any?
     normalize_leading_spaces(sections)
   end
 
@@ -327,15 +337,16 @@ class Rocco
   # separate lists: one holding the comments with leaders removed and
   # one with the code blocks.
   def split(sections)
-    docs_blocks, code_blocks = [], []
-    sections.each do |docs,code|
+    docs_blocks, code_blocks, parent_indices = [], [], []
+    sections.each do |docs, code, parent_index|
       docs_blocks << docs.join("\n")
       code_blocks << code.map do |line|
         tabs = line.match(/^(\t+)/)
         tabs ? line.sub(/^\t+/, '  ' * tabs.captures[0].length) : line
       end.join("\n")
+      parent_indices << parent_index
     end
-    [docs_blocks, code_blocks]
+    [docs_blocks, code_blocks, parent_indices]
   end
 
   # Take a list of block comments and convert Docblock @annotations to
@@ -351,7 +362,7 @@ class Rocco
   # Take the result of `split` and apply Markdown formatting to comments and
   # syntax highlighting to source code.
   def highlight(blocks)
-    docs_blocks, code_blocks = blocks
+    docs_blocks, code_blocks, parent_indices = blocks
 
     # Pre-process Docblock @annotations.
     docs_blocks = docblock(docs_blocks) if @options[:docblocks]
@@ -405,7 +416,7 @@ class Rocco
       map { |code| code.sub(/\n?<\/pre>\n?<\/div>\n/m, '') }
 
     # Lastly, combine the docs and code lists back into a list of two-tuples.
-    docs_html.zip(code_html)
+    docs_html.zip(code_html, parent_indices)
   end
 
   # Convert Markdown to classy HTML.
