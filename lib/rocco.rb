@@ -60,6 +60,9 @@ require 'pygments'
 # * `:stylesheet`, which specifies the css stylesheet to use for each
 #   rendered template.  _Defaults to `http://jashkenas.github.com/docco/resources/docco.css`
 #   (the original docco stylesheet)
+#
+# * `:javascript`, which specifies the path to a JavaScript that will be loaded
+#   by the template. _Defaults to nil (that is, do not use a file)._
 class Rocco
   VERSION = '0.8.2'
 
@@ -76,7 +79,8 @@ class Rocco
       :language      => 'ruby',
       :comment_chars => '#',
       :template_file => nil,
-      :stylesheet    => 'http://jashkenas.github.com/docco/resources/docco.css'
+      :stylesheet    => 'http://jashkenas.github.com/docco/resources/docco.css',
+      :javascript    => nil
     }.merge(options)
 
     # If we detect a language
@@ -128,7 +132,9 @@ class Rocco
   # Generate HTML output for the entire document.
   require 'rocco/layout'
   def to_html
-    Rocco::Layout.new(self, @options[:stylesheet], @options[:template_file]).render
+    options = @options.dup
+    stylesheet = options.delete(:stylesheet)
+    Rocco::Layout.new(self, stylesheet, options).render
   end
 
   # Helper Functions
