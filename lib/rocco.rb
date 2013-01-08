@@ -31,6 +31,8 @@
 
 #### Prerequisites
 
+require 'pp'
+
 # We use [redcarpet](https://github.com/tanoku/redcarpet) for markdown
 require 'redcarpet'
 
@@ -414,6 +416,12 @@ class Rocco
       split(divider_output).
       map { |code| code.sub(/\n?<div class="highlight"><pre>/m, '') }.
       map { |code| code.sub(/\n?<\/pre>\n?<\/div>\n/m, '') }
+
+    if (diff = code_html.size - docs_html.size) > 0
+      diff.times { docs_html << "" }
+    elsif (diff = docs_html.size - code_html.size) > 0
+      diff.times { code_html << "" }
+    end
 
     # Lastly, combine the docs and code lists back into a list of two-tuples.
     docs_html.zip(code_html, parent_indices)
